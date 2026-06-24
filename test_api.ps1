@@ -4,7 +4,7 @@ Write-Host "========================================"
 Write-Host " EmergiCare Backend Connection Test"
 Write-Host "========================================"
 
-$BaseUrl = "http://localhost:3001/api"
+$BaseUrl = "https://emrgi-care-backend.kindpond-61ca57cc.eastasia.azurecontainerapps.io/api"
 
 # 1. Login to get JWT
 Write-Host "Logging in as Admin..."

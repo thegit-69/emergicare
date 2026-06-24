@@ -26,7 +26,11 @@ static Json::Value rowToTriage(const drogon::orm::Row& row) {
     Json::Value t;
     t["id"]             = row["id"].as<int>();
     t["patientId"]      = row["patient_id"].as<int>();
-    t["patientName"]    = row["patient_name"].isNull() ? Json::Value("") : Json::Value(row["patient_name"].as<std::string>());
+    try {
+        t["patientName"] = row["patient_name"].isNull() ? Json::Value("") : Json::Value(row["patient_name"].as<std::string>());
+    } catch (...) {
+        t["patientName"] = "";
+    }
     t["severityLevel"]  = row["severity_level"].as<std::string>();
     t["severityLabel"]  = row["severity_label"].as<std::string>();
     t["chiefComplaint"] = row["chief_complaint"].isNull() ? Json::Value("") : Json::Value(row["chief_complaint"].as<std::string>());
@@ -142,14 +146,19 @@ void TriageController::create(const drogon::HttpRequestPtr& req,
     // Store in DB
     auto db = drogon::app().getDbClient();
     db->execSqlAsync(
-        "INSERT INTO triage_entries "
-        "(patient_id, severity_level, severity_label, chief_complaint, "
-        " heart_rate, systolic_bp, diastolic_bp, temperature, oxygen_sat, "
-        " assessed_by, notes, status) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Waiting') "
-        "RETURNING id, patient_id, severity_level, severity_label, chief_complaint, "
-        "          heart_rate, systolic_bp, diastolic_bp, temperature, oxygen_sat, "
-        "          assessed_by, notes, status, assessed_at::text",
+        "WITH inserted AS ( "
+        "  INSERT INTO triage_entries "
+        "  (patient_id, severity_level, severity_label, chief_complaint, "
+        "   heart_rate, systolic_bp, diastolic_bp, temperature, oxygen_sat, "
+        "   assessed_by, notes, status) "
+        "  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Waiting') "
+        "  RETURNING * "
+        ") "
+        "SELECT i.id, i.patient_id, p.name AS patient_name, i.severity_level, "
+        "       i.severity_label, i.chief_complaint, i.heart_rate, i.systolic_bp, "
+        "       i.diastolic_bp, i.temperature, i.oxygen_sat, i.assessed_by, "
+        "       i.notes, i.status, i.assessed_at::text "
+        "FROM inserted i LEFT JOIN patients p ON i.patient_id = p.id",
 
         [callback](const drogon::orm::Result& r) {
             // For patient_name we do a second query in a real app; here we return what we have

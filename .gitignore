@@ -56,3 +56,7 @@ Thumbs.db
 
 # Sensitive files
 error_log.md
+
+# Tests
+test_api.ps1
+test_triage.ps1

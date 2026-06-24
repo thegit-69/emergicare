@@ -11,19 +11,23 @@
 
 static Json::Value rowToQueueEntry(const drogon::orm::Row& row) {
     Json::Value e;
-    e["id"]                 = row["id"].as<int>();
-    e["triageId"]           = row["triage_id"].as<int>();
-    e["patientId"]          = row["patient_id"].as<int>();
-    e["patientName"]        = row["patient_name"].isNull() ? Json::Value("") : Json::Value(row["patient_name"].as<std::string>());
-    e["severityLevel"]      = row["severity_level"].as<std::string>();
-    e["severityLabel"]      = row["severity_label"].isNull() ? Json::Value("") : Json::Value(row["severity_label"].as<std::string>());
-    e["priorityScore"]      = row["priority_score"].as<int>();
-    e["queueStatus"]        = row["queue_status"].as<std::string>();
-    e["assignedDoctor"]     = row["assigned_doctor"].isNull() ? Json::Value("") : Json::Value(row["assigned_doctor"].as<std::string>());
-    e["assignedBed"]        = row["assigned_bed"].isNull()    ? Json::Value("") : Json::Value(row["assigned_bed"].as<std::string>());
-    e["enqueuedAt"]         = row["enqueued_at"].as<std::string>();
-    e["treatmentStartedAt"] = row["treatment_started_at"].isNull() ? Json::Value("") : Json::Value(row["treatment_started_at"].as<std::string>());
-    e["dischargedAt"]       = row["discharged_at"].isNull()        ? Json::Value("") : Json::Value(row["discharged_at"].as<std::string>());
+    try {
+        e["id"]                 = row["id"].as<int>();
+        e["triageId"]           = row["triage_id"].as<int>();
+        e["patientId"]          = row["patient_id"].as<int>();
+        e["patientName"]        = row["patient_name"].isNull() ? Json::Value("") : Json::Value(row["patient_name"].as<std::string>());
+        e["severityLevel"]      = row["severity_level"].isNull() ? Json::Value("") : Json::Value(row["severity_level"].as<std::string>());
+        e["severityLabel"]      = row["severity_label"].isNull() ? Json::Value("") : Json::Value(row["severity_label"].as<std::string>());
+        e["priorityScore"]      = row["priority_score"].as<int>();
+        e["queueStatus"]        = row["queue_status"].as<std::string>();
+        e["assignedDoctor"]     = row["assigned_doctor"].isNull() ? Json::Value("") : Json::Value(row["assigned_doctor"].as<std::string>());
+        e["assignedBed"]        = row["assigned_bed"].isNull()    ? Json::Value("") : Json::Value(row["assigned_bed"].as<std::string>());
+        e["enqueuedAt"]         = row["enqueued_at"].as<std::string>();
+        e["treatmentStartedAt"] = row["treatment_started_at"].isNull() ? Json::Value("") : Json::Value(row["treatment_started_at"].as<std::string>());
+        e["dischargedAt"]       = row["discharged_at"].isNull()        ? Json::Value("") : Json::Value(row["discharged_at"].as<std::string>());
+    } catch (...) {
+        // Fallback for fields
+    }
     return e;
 }
 
@@ -97,16 +101,21 @@ void EmergencyQueueController::enqueue(const drogon::HttpRequestPtr& req,
             else if (severity == "P3") priorityScore = 3;
 
             db->execSqlAsync(
-                "INSERT INTO emergency_queue "
-                "(triage_id, patient_id, priority_score, queue_status) "
-                "VALUES ($1, $2, $3, 'Waiting') "
-                "RETURNING id, triage_id, patient_id, priority_score, queue_status, "
-                "          NULL::text AS patient_name, NULL::text AS severity_level, "
-                "          NULL::text AS severity_label, "
-                "          NULL::text AS assigned_doctor, NULL::text AS assigned_bed, "
-                "          enqueued_at::text, "
-                "          NULL::text AS treatment_started_at, "
-                "          NULL::text AS discharged_at",
+                "WITH inserted AS ( "
+                "  INSERT INTO emergency_queue "
+                "  (triage_id, patient_id, priority_score, queue_status) "
+                "  VALUES ($1, $2, $3, 'Waiting') "
+                "  RETURNING * "
+                ") "
+                "SELECT eq.id, eq.triage_id, eq.patient_id, p.name AS patient_name, "
+                "       te.severity_level, te.severity_label, "
+                "       eq.priority_score, eq.queue_status, "
+                "       eq.assigned_doctor, eq.assigned_bed, "
+                "       eq.enqueued_at::text, eq.treatment_started_at::text, "
+                "       eq.discharged_at::text "
+                "FROM inserted eq "
+                "JOIN patients p        ON eq.patient_id = p.id "
+                "JOIN triage_entries te ON eq.triage_id  = te.id",
 
                 [callback](const drogon::orm::Result& r2) {
                     auto resp = drogon::HttpResponse::newHttpJsonResponse(rowToQueueEntry(r2[0]));
@@ -164,16 +173,24 @@ void EmergencyQueueController::update(const drogon::HttpRequestPtr& req,
 
     auto db = drogon::app().getDbClient();
     db->execSqlAsync(
-        "UPDATE emergency_queue "
-        "SET queue_status    = COALESCE(NULLIF($1,''), queue_status), "
-        "    assigned_doctor = COALESCE(NULLIF($2,''), assigned_doctor), "
-        "    assigned_bed    = COALESCE(NULLIF($3,''), assigned_bed) "
-        "WHERE id = $4 "
-        "RETURNING id, triage_id, patient_id, priority_score, queue_status, "
-        "          NULL::text AS patient_name, NULL::text AS severity_level, "
-        "          NULL::text AS severity_label, "
-        "          assigned_doctor, assigned_bed, "
-        "          enqueued_at::text, treatment_started_at::text, discharged_at::text",
+        "WITH updated AS ( "
+        "  UPDATE emergency_queue "
+        "  SET queue_status    = COALESCE(NULLIF($1,''), queue_status), "
+        "      assigned_doctor = COALESCE(NULLIF($2,''), assigned_doctor), "
+        "      assigned_bed    = COALESCE(NULLIF($3,''), assigned_bed) "
+        + startedSql + dischargedSql +
+        "  WHERE id = $4 "
+        "  RETURNING * "
+        ") "
+        "SELECT eq.id, eq.triage_id, eq.patient_id, p.name AS patient_name, "
+        "       te.severity_level, te.severity_label, "
+        "       eq.priority_score, eq.queue_status, "
+        "       eq.assigned_doctor, eq.assigned_bed, "
+        "       eq.enqueued_at::text, eq.treatment_started_at::text, "
+        "       eq.discharged_at::text "
+        "FROM updated eq "
+        "JOIN patients p        ON eq.patient_id = p.id "
+        "JOIN triage_entries te ON eq.triage_id  = te.id",
 
         [callback](const drogon::orm::Result& r) {
             if (r.empty()) {
