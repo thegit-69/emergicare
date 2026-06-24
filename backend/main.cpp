@@ -37,7 +37,53 @@ int main() {
     const char* dbUrl = std::getenv("DATABASE_URL");
     if (dbUrl && strlen(dbUrl) > 0) {
         std::cout << "[EmergiCare] DB Mode: Connection String (managed DB)\n";
-        dbConf["connection_info"] = std::string(dbUrl);
+        std::string url(dbUrl);
+        std::string prefix = "postgresql://";
+        if (url.find(prefix) == 0) url = url.substr(prefix.length());
+        
+        auto atPos = url.find('@');
+        if (atPos != std::string::npos) {
+            std::string creds = url.substr(0, atPos);
+            std::string rest = url.substr(atPos + 1);
+            
+            auto colonPos = creds.find(':');
+            if (colonPos != std::string::npos) {
+                dbConf["user"] = creds.substr(0, colonPos);
+                dbConf["passwd"] = creds.substr(colonPos + 1);
+            } else {
+                dbConf["user"] = creds;
+                dbConf["passwd"] = "";
+            }
+            
+            auto slashPos = rest.find('/');
+            std::string hostPort = rest.substr(0, slashPos);
+            std::string dbNameQuery = (slashPos != std::string::npos) ? rest.substr(slashPos + 1) : "";
+            
+            auto hpColon = hostPort.find(':');
+            if (hpColon != std::string::npos) {
+                dbConf["host"] = hostPort.substr(0, hpColon);
+                dbConf["port"] = std::stoi(hostPort.substr(hpColon + 1));
+            } else {
+                dbConf["host"] = hostPort;
+                dbConf["port"] = 5432;
+            }
+            
+            auto qPos = dbNameQuery.find('?');
+            if (qPos != std::string::npos) {
+                std::string dbName = dbNameQuery.substr(0, qPos);
+                std::string query = dbNameQuery.substr(qPos + 1);
+                dbConf["dbname"] = dbName;
+                if (query.find("sslmode=require") != std::string::npos) {
+#ifdef _WIN32
+                    _putenv_s("PGSSLMODE", "require");
+#else
+                    setenv("PGSSLMODE", "require", 1);
+#endif
+                }
+            } else {
+                dbConf["dbname"] = dbNameQuery;
+            }
+        }
     } else {
         std::cout << "[EmergiCare] DB Mode: Individual params (local dev)\n";
         dbConf["host"] = getEnv("DB_HOST", "postgres");
