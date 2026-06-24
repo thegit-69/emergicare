@@ -23,27 +23,27 @@ services:
   # PostgreSQL Database (local dev only)
   # For production: use Supabase (set DATABASE_URL in backend/.env)
   # ------------------------------------------------------------
-  postgres:
-    image: postgres:15-alpine
-    container_name: emergicare_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER:     ${POSTGRES_USER:-emergicare}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emergicare_secret}
-      POSTGRES_DB:       ${POSTGRES_DB:-emergicare_db}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-    ports:
-      - "5433:5432"      # Exposed on 5433 to avoid conflict with any host postgres
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-emergicare} -d ${POSTGRES_DB:-emergicare_db}"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-    networks:
-      - emergicare-net
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: emergicare_db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER:     ${POSTGRES_USER:-emergicare}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emergicare_secret}
+  #     POSTGRES_DB:       ${POSTGRES_DB:-emergicare_db}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./init-db.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+  #   ports:
+  #     - "5433:5432"      # Exposed on 5433 to avoid conflict with any host postgres
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-emergicare} -d ${POSTGRES_DB:-emergicare_db}"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 12
+  #     start_period: 10s
+  #   networks:
+  #     - emergicare-net
 
   # ------------------------------------------------------------
   # C++ Drogon Backend API
@@ -65,9 +65,9 @@ services:
       DB_PORT: "5432"
     ports:
       - "3001:3001"
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
     networks:
       - emergicare-net
 
@@ -81,6 +81,6 @@ networks:
 # ================================================================
 # Volumes
 # ================================================================
-volumes:
-  postgres_data:
-    name: emergicare_postgres_data
+# volumes:
+#   postgres_data:
+#     name: emergicare_postgres_data
