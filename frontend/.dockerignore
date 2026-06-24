@@ -1,0 +1,22 @@
+# Ignore dependencies and build outputs
+node_modules/
+dist/
+dist-ssr/
+npm-debug.log
+*.log
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore Docker/Git setup files
+Dockerfile
+.dockerignore
+.git
+.gitignore
+
+# Ignore editor and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

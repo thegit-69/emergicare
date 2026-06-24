@@ -1,0 +1,17 @@
+# C++ build artifacts
+build/
+cmake-build-*/
+_deps/
+CMakeCache.txt
+CMakeFiles/
+*.o
+*.a
+*.so
+
+# Environment files (secrets)
+.env
+
+# Editor files
+.vscode/
+.idea/
+*.sw?

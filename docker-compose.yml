@@ -1,0 +1,39 @@
+# This file defines how to run the multi-container application.
+# Run 'docker-compose up' to build and start all services.
+# Note: Database connection should be configured to local PostgreSQL or Supabase
+
+services:
+  # The Backend API Service
+  backend:
+    build:
+      context: ./backend
+    container_name: healthcare_backend_api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_HOST=host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3001:3001"
+    networks:
+      - app-network
+
+  # The Frontend Web Server Service
+  frontend:
+    build:
+      context: ./frontend
+    container_name: healthcare_frontend_ui
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+# Defines the network that allows containers to communicate with each other
+networks:
+  app-network:
+    driver: bridge

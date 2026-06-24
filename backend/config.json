@@ -1,0 +1,20 @@
+{
+    "listeners": [
+        {
+            "address": "0.0.0.0",
+            "port": 3001,
+            "https": false
+        }
+    ],
+    "app": {
+        "threads_num": 4,
+        "enable_session": false,
+        "document_root": "",
+        "log_level": "INFO",
+        "run_as_daemon": false,
+        "relaunch_on_error": false,
+        "use_sendfile": true,
+        "enable_gzip": true,
+        "client_max_body_size": "1M"
+    }
+}
