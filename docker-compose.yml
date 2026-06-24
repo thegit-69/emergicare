@@ -11,7 +11,6 @@
 # SERVICES:
 #   postgres  – PostgreSQL 16 (uses locally cached image)
 #   backend   – C++ Drogon REST API on port 3001
-#   frontend  – React/Vite SPA served by Nginx on port 8080
 #
 # PRODUCTION:
 #   Set DATABASE_URL in backend/.env for Supabase/managed DB.
@@ -71,23 +70,6 @@ services:
         condition: service_healthy
     networks:
       - emergicare-net
-
-  # ------------------------------------------------------------
-  # React Frontend (Nginx static server)
-  # ------------------------------------------------------------
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   image: emergicare-frontend:latest
-  #   container_name: emergicare_frontend
-  #   restart: unless-stopped
-  #   ports:
-  #     - "8080:80"
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - emergicare-net
 
 # ================================================================
 # Networks
