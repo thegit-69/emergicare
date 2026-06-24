@@ -42,7 +42,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     libpq5 \
     libjsoncpp25 \
-    libcares2 \
+    libc-ares2 \
+    libmariadb3 \
+    libsqlite3-0 \
     zlib1g \
     libbrotli1 \
     libcrypt1 \

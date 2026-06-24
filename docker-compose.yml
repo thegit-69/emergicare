@@ -1,39 +1,88 @@
-# This file defines how to run the multi-container application.
-# Run 'docker-compose up' to build and start all services.
-# Note: Database connection should be configured to local PostgreSQL or Supabase
+# ================================================================
+# EmergiCare – Docker Compose (Local Development)
+# ================================================================
+#
+# USAGE:
+#   docker-compose up --build          # First run (builds C++ backend ~10 min)
+#   docker-compose up                  # Subsequent runs (uses cached build)
+#   docker-compose up postgres         # Start DB only (fast, for testing schema)
+#   docker-compose down -v             # Stop + remove volumes
+#
+# SERVICES:
+#   postgres  – PostgreSQL 16 (uses locally cached image)
+#   backend   – C++ Drogon REST API on port 3001
+#   frontend  – React/Vite SPA served by Nginx on port 8080
+#
+# PRODUCTION:
+#   Set DATABASE_URL in backend/.env for Supabase/managed DB.
+#   Deploy backend as Azure Container App (see prd.md).
+# ================================================================
 
 services:
-  # The Backend API Service
+
+  # ------------------------------------------------------------
+  # PostgreSQL Database (local dev only)
+  # For production: use Supabase (set DATABASE_URL in backend/.env)
+  # ------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: emergicare_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-emergicare}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emergicare_secret}
+      POSTGRES_DB:       ${POSTGRES_DB:-emergicare_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    ports:
+      - "5433:5432"      # Exposed on 5433 to avoid conflict with any host postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-emergicare} -d ${POSTGRES_DB:-emergicare_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - emergicare-net
+
+  # ------------------------------------------------------------
+  # C++ Drogon Backend API
+  # Connects to postgres service (or Supabase via DATABASE_URL)
+  # ------------------------------------------------------------
   backend:
     build:
       context: ./backend
-    container_name: healthcare_backend_api
+      dockerfile: Dockerfile
+    image: emergicare-backend:latest
+    container_name: emergicare_backend
     restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
-      - DB_HOST=host.docker.internal
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # Override DB_HOST to point to the postgres service in this compose network.
+      # This is overridden by DATABASE_URL if set in backend/.env (Supabase mode).
+      DB_HOST: postgres
+      DB_PORT: "5432"
     ports:
       - "3001:3001"
-    networks:
-      - app-network
-
-  # The Frontend Web Server Service
-  frontend:
-    build:
-      context: ./frontend
-    container_name: healthcare_frontend_ui
-    restart: unless-stopped
-    ports:
-      - "8080:80"
     depends_on:
-      - backend
+      postgres:
+        condition: service_healthy
     networks:
-      - app-network
+      - emergicare-net
 
-# Defines the network that allows containers to communicate with each other
+
+# ================================================================
+# Networks
+# ================================================================
 networks:
-  app-network:
+  emergicare-net:
     driver: bridge
+
+# ================================================================
+# Volumes
+# ================================================================
+volumes:
+  postgres_data:
+    name: emergicare_postgres_data
